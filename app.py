@@ -42,6 +42,9 @@ if "status" not in st.session_state:
 if "history" not in st.session_state:
     st.session_state.history = []
 
+if "score_log" not in st.session_state:
+    st.session_state.score_log = []
+
 if "difficulty" not in st.session_state:
     st.session_state.difficulty = difficulty
 
@@ -52,6 +55,7 @@ if st.session_state.difficulty != difficulty:
     st.session_state.status = "playing"
     st.session_state.score = 0
     st.session_state.history = []
+    st.session_state.score_log = []
 
 st.subheader("Make a guess")
 
@@ -66,6 +70,7 @@ with st.expander("Developer Debug Info"):
     st.write("Score:", st.session_state.score)
     st.write("Difficulty:", difficulty)
     st.write("History:", st.session_state.history)
+    st.write("Score Log:", st.session_state.score_log)
 
 raw_guess = st.text_input("Enter your guess:", key=f"guess_input_{difficulty}")
 
@@ -83,6 +88,7 @@ if new_game:
     st.session_state.status = "playing"
     st.session_state.score = 0
     st.session_state.history = []
+    st.session_state.score_log = []
     st.success("New game started.")
     st.rerun()
 
@@ -94,25 +100,37 @@ if st.session_state.status != "playing":
     st.stop()
 
 if submit:
-    st.session_state.attempts += 1
-
     ok, guess_int, err = parse_guess(raw_guess)
 
     if not ok:
-        st.session_state.history.append(raw_guess)
         st.error(err)
+    elif guess_int < low or guess_int > high:
+        st.warning(f"Out of range! Please guess between {low} and {high}.")
     else:
+        st.session_state.attempts += 1
         st.session_state.history.append(guess_int)
 
-        outcome, message = check_guess(guess_int, st.session_state.secret)
+        outcome = check_guess(guess_int, st.session_state.secret)
+
+        if outcome == "Too High":
+            message = "📉 Too high! Try a lower number."
+        elif outcome == "Too Low":
+            message = "📈 Too low! Try a higher number."
+        else:
+            message = "🎯 You got it!"
 
         if show_hint:
             st.warning(message)
 
+        prev_score = st.session_state.score
         st.session_state.score = update_score(
             current_score=st.session_state.score,
             outcome=outcome,
             attempt_number=st.session_state.attempts,
+        )
+        delta = st.session_state.score - prev_score
+        st.session_state.score_log.append(
+            f"Guess {guess_int}: {outcome} ({'+' if delta >= 0 else ''}{delta})"
         )
 
         if outcome == "Win":
